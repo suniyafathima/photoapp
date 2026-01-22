@@ -1,11 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:photoapp/controller/photoprovider.dart';
+import 'package:provider/provider.dart';
 import '../model/fetch_photo_model.dart';
-import '../service/photo_service.dart';
 
-class PhotoListPage extends StatelessWidget {
-  PhotoListPage({super.key});
+class PhotoListPage extends StatefulWidget {
+  const PhotoListPage({super.key});
 
-  final PhotoService _photoService = PhotoService();
+  @override
+  State<PhotoListPage> createState() => _PhotoListPageState();
+}
+
+class _PhotoListPageState extends State<PhotoListPage> {
+  @override
+  void initState() {
+    super.initState();
+     WidgetsBinding.instance.addPostFrameCallback((_) {
+    context.read<PhotoProvider>().fetchPhotos();
+  });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,32 +35,49 @@ class PhotoListPage extends StatelessWidget {
         ),
         centerTitle: true,
       ),
-      body: FutureBuilder<List<Fetchphotomodel>>(
-        future: _photoService.fetchPhotos(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+      body: Consumer<PhotoProvider>(
+        builder: (context, provider, _) {
+          if (provider.isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (snapshot.hasError) {
+          if (provider.error != null) {
             return Center(
               child: Text(
-                snapshot.error.toString(),
+                provider.error!,
                 style: const TextStyle(color: Colors.red),
               ),
             );
           }
 
-          final photos = snapshot.data!;
+          final photos = provider.photos.reversed.toList();
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: photos.length,
-            itemBuilder: (context, index) {
-              final photo = photos[index];
+          return SingleChildScrollView(
+            child: Column(
+              children: [
+                /// TOP IMAGE
+                Image.network(
+                  photos[0].downloadUrl ?? '',
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace)  => Container(
+                    color: Colors.grey[300],
+                    height: 200,
+                    child: const Icon(Icons.broken_image, size: 60),
+                  ),
+                ),
 
-              return _PhotoCard(photo: photo);
-            },
+            
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16),
+                  itemCount: photos.length,
+                  itemBuilder: (context, index) {
+                    return _PhotoCard(photo: photos[index]);
+                  },
+                ),
+              ],
+            ),
           );
         },
       ),
@@ -80,12 +109,12 @@ class _PhotoCard extends StatelessWidget {
             Image.network(
               photo.downloadUrl ?? '',
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
+              errorBuilder: (context, error, stackTrace) => Container(
                 color: Colors.grey[300],
                 child: const Icon(Icons.broken_image, size: 60),
               ),
             ),
-
+      
             /// AUTHOR INFO
             Positioned(
               left: 16,
@@ -109,7 +138,7 @@ class _PhotoCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 12),
-
+      
                   /// AUTHOR NAME
                   Expanded(
                     child: Text(
@@ -158,7 +187,7 @@ class PhotoCard extends StatelessWidget {
               child: Image.network(
                 photo.downloadUrl ?? '',
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
+                errorBuilder: (context, error, stackTrace) => Container(
                   color: Colors.grey.shade200,
                   child: const Icon(Icons.broken_image, size: 40),
                 ),
